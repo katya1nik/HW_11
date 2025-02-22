@@ -26,14 +26,27 @@
 
 """
 from dataclasses import dataclass
+import json
+
 @dataclass
 class City:
-   name: str
-   lat: float
-   lon: float
-   district: str
-   population: int
-   subject: str
+   """
+    Датакласс для хранения информации о городе.
+    
+    Атрибуты:
+        name (str): Название города
+        lat (float): Широта
+        lon (float): Долгота
+        district (str): Федеральный округ
+        population (int): Население
+        subject (str): Субъект РФ
+    """ 
+   name: str = None
+   lat: float = None
+   lon: float = None
+   district: str = None
+   population: int = None
+   subject: str = None
 
 
 """
@@ -120,3 +133,92 @@ for city in cities_iterator:
 >- Код должен соответствовать стандарту PEP-8 и включать подробные аннотации типов и docstring.
 >- Приведенный пример использования должен корректно работать и демонстрировать функциональность итератора.
 """
+
+class CitiesIterator:
+   """
+    Итератор для обработки списка городов.
+    
+    Методы:
+        set_population_filter: Устанавливает минимальное значение населения
+        sort_by: Сортирует города по указанному параметру
+    """
+   def __init__(self, cities: list[dict]):
+        self.cities = cities
+        self.index = 0
+        self.filtered_cities = self._validate_and_convert_cities()
+
+   def _validate_and_convert_cities(self) -> list[City]:
+      result = []
+      for city_data in self.cities:
+         if not all(key in city_data for key in ['name', 'district', 'population', 'subject', 'coords']):
+            raise KeyError ('Отсутствуют обязательные поля в данных города')
+         
+         if not all(key in city_data['coords'] for key in ['lat', 'lon']):
+            raise KeyError ('Отсутствуют координаты в данных города')
+
+         city = City(
+            name=city_data['name'],
+            lat=float(city_data['coords']['lat']),
+            lon=float(city_data['coords']['lon']),
+            district=city_data['district'],
+            population=city_data['population'],
+            subject=city_data['subject']
+         )
+         result.append(city)
+      return result
+
+   def __iter__(self):
+      self.index = 0
+      return self
+
+   def __next__(self):
+      if self.index >= len(self.filtered_cities):
+         raise StopIteration
+      city = self.filtered_cities[self.index]
+      self.index += 1
+      return city
+
+   def set_population_filter(self, min_population: int):
+      self.filtered_cities = [city for city in self.filtered_cities if city.population >= min_population]
+      return self
+
+   def sort_by(self, parameter: str, reverse: bool = False):
+      if not hasattr(City, parameter):
+         raise ValueError(f"Параметр {parameter} не существует в классе City")
+      self.filtered_cities.sort(key=lambda x: getattr(x, parameter), reverse=reverse)
+      return self
+
+# Пример использования:
+# cities_list = [
+#     {
+#         "coords": {
+#             "lat": "52.65",
+#             "lon": "90.08333"
+#         },
+#         "district": "Сибирский",
+#         "name": "Абаза",
+#         "population": 14816,
+#         "subject": "Хакасия"
+#     },
+#     {
+#         "coords": {
+#             "lat": "55.65",
+#             "lon": "37.08333"
+#         },
+#         "district": "Центральный",
+#         "name": "Москва",
+#         "population": 12000000,
+#         "subject": "Москва"
+#     }
+# ]
+
+with open('cities.json', 'r', encoding='utf-8') as file:
+    cities_list = json.load(file)
+
+iterator = CitiesIterator(cities_list)
+iterator.set_population_filter(1_500_000)
+iterator.sort_by('name')
+
+for city in iterator:
+    print(f'{city.name}: население {city.population}')
+   
